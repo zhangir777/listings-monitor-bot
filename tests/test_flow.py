@@ -6,8 +6,8 @@ from datetime import datetime
 import pytest
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.base import BaseSession
-from aiogram.methods import SendMessage
-from aiogram.types import Chat, Message, Update
+from aiogram.methods import EditMessageText, SendMessage
+from aiogram.types import CallbackQuery, Chat, Message, Update
 from aiogram.types import User as TgUser
 
 import bot.main as main
@@ -79,6 +79,7 @@ def env(tmp_path, monkeypatch):
         await dp.feed_update(bot, update)
         return [c for c in session.calls if isinstance(c, SendMessage)]
 
+    feed.session = session
     return feed, page, monkeypatch
 
 
@@ -88,7 +89,7 @@ async def test_add_then_only_new_listings_sent(env):
     assert "#1" in sent[0].text and "2" in sent[0].text
 
     sent = await feed(msg("/check"))
-    assert sent[0].text == main.TEXTS["ru"]["no_new"]
+    assert sent[0].text == main.TEXTS["en"]["no_new"]
 
     page += [item(3), item(4, price=400000)]  # #4 is over the max price
     sent = await feed(msg("/check"))
@@ -97,7 +98,7 @@ async def test_add_then_only_new_listings_sent(env):
     assert "https://krisha.kz/a/show/3" in sent[0].text
 
     sent = await feed(msg("/check"))  # already sent -> not again
-    assert sent[0].text == main.TEXTS["ru"]["no_new"]
+    assert sent[0].text == main.TEXTS["en"]["no_new"]
 
 
 async def test_many_new_listings_are_summarized(env):
@@ -111,17 +112,17 @@ async def test_many_new_listings_are_summarized(env):
 
 async def test_list_remove_and_validation(env):
     feed, _, _ = env
-    assert (await feed(msg("/add https://evil.com/x")))[0].text == main.TEXTS["ru"]["bad_url"]
-    assert (await feed(msg(f"/add {URL} abc")))[0].text == main.TEXTS["ru"]["bad_price"]
-    assert (await feed(msg("/list")))[0].text == main.TEXTS["ru"]["empty"]
+    assert (await feed(msg("/add https://evil.com/x")))[0].text == main.TEXTS["en"]["bad_url"]
+    assert (await feed(msg(f"/add {URL} abc")))[0].text == main.TEXTS["en"]["bad_price"]
+    assert (await feed(msg("/list")))[0].text == main.TEXTS["en"]["empty"]
 
     await feed(msg(f"/add {URL} 300000"))
     listing = (await feed(msg("/list")))[0].text
-    assert "#1" in listing and "до 300 000 ₸" in listing
+    assert "#1" in listing and "up to 300 000 ₸" in listing
 
-    assert "удалён" in (await feed(msg("/remove 1")))[0].text
-    assert "нет" in (await feed(msg("/remove 1")))[0].text
-    assert (await feed(msg("/remove x")))[0].text == main.TEXTS["ru"]["remove_usage"]
+    assert "deleted" in (await feed(msg("/remove 1")))[0].text
+    assert "No search" in (await feed(msg("/remove 1")))[0].text
+    assert (await feed(msg("/remove x")))[0].text == main.TEXTS["en"]["remove_usage"]
 
 
 async def test_search_limit(env):
@@ -129,7 +130,7 @@ async def test_search_limit(env):
     for _ in range(main.MAX_SEARCHES):
         await feed(msg(f"/add {URL}"))
     sent = await feed(msg(f"/add {URL}"))
-    assert sent[0].text == main.TEXTS["ru"]["too_many"].format(n=main.MAX_SEARCHES)
+    assert sent[0].text == main.TEXTS["en"]["too_many"].format(n=main.MAX_SEARCHES)
 
 
 async def test_site_down_and_private_mode(env):
@@ -139,8 +140,23 @@ async def test_site_down_and_private_mode(env):
         raise FetchError("HTTP 503")
 
     monkeypatch.setattr(main, "fetcher", down)
-    assert (await feed(msg(f"/add {URL}")))[0].text == main.TEXTS["ru"]["fetch_error"]
+    assert (await feed(msg(f"/add {URL}")))[0].text == main.TEXTS["en"]["fetch_error"]
 
     monkeypatch.setattr(main, "allowed", {999})
-    en = TgUser(id=10, is_bot=False, first_name="T", language_code="en")
-    assert (await feed(msg("/start", en)))[0].text == main.TEXTS["en"]["closed"]
+    assert (await feed(msg("/start")))[0].text == main.TEXTS["en"]["closed"]
+
+
+async def test_english_by_default_then_switch_language(env):
+    feed, _, _ = env
+    assert (await feed(msg("/start")))[0].text == main.TEXTS["en"]["start"]
+
+    sent = await feed(msg("/language"))
+    buttons = [b.callback_data for row in sent[0].reply_markup.inline_keyboard for b in row]
+    assert buttons == ["lang:en", "lang:ru", "lang:kk"]
+
+    m = Message(message_id=next(ids), date=datetime.now(), chat=CHAT, text="x")
+    query = CallbackQuery(id="1", from_user=USER, chat_instance="1", message=m, data="lang:ru")
+    await feed(Update(update_id=next(ids), callback_query=query))
+    edits = [c for c in feed.session.calls if isinstance(c, EditMessageText)]
+    assert edits[0].text == main.TEXTS["ru"]["start"]
+    assert (await feed(msg("/list")))[0].text == main.TEXTS["ru"]["empty"]

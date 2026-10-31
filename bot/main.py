@@ -10,11 +10,12 @@ import os
 from collections.abc import Awaitable, Callable
 
 import aiohttp
-from aiogram import Bot, Dispatcher, Router
+from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandObject, CommandStart
-from aiogram.types import BotCommand, LinkPreviewOptions, Message
+from aiogram.types import BotCommand, CallbackQuery, LinkPreviewOptions, Message
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from dotenv import load_dotenv
 
 from bot.krisha import FetchError, Listing, fetch, is_search_url
@@ -28,7 +29,8 @@ TEXTS = {
         "start": "Hi! I watch Krisha.kz and send you new listings as soon as they appear.\n\n"
         "1. Open krisha.kz, set filters (city, rooms, price) and copy the page link.\n"
         "2. Send: <code>/add LINK</code> or <code>/add LINK 300000</code> (max price, ₸).\n\n"
-        "/list – your searches\n/remove N – delete search N\n/check – check now",
+        "/list – your searches\n/remove N – delete search N\n/check – check now\n"
+        "/language – change language",
         "bad_url": "Send a Krisha.kz search link, e.g.\n"
         "<code>/add https://krisha.kz/arenda/kvartiry/almaty/?das[live.rooms]=1 300000</code>",
         "bad_price": "Max price must be a number, e.g. 300000",
@@ -52,7 +54,8 @@ TEXTS = {
         "1. Откройте krisha.kz, выставьте фильтры (город, комнаты, цена) и скопируйте ссылку.\n"
         "2. Отправьте: <code>/add ССЫЛКА</code> или <code>/add ССЫЛКА 300000</code> "
         "(макс. цена, ₸).\n\n"
-        "/list – ваши поиски\n/remove N – удалить поиск N\n/check – проверить сейчас",
+        "/list – ваши поиски\n/remove N – удалить поиск N\n/check – проверить сейчас\n"
+        "/language – сменить язык",
         "bad_url": "Пришлите ссылку на поиск Krisha.kz, например\n"
         "<code>/add https://krisha.kz/arenda/kvartiry/almaty/?das[live.rooms]=1 300000</code>",
         "bad_price": "Макс. цена должна быть числом, например 300000",
@@ -75,7 +78,8 @@ TEXTS = {
         "1. krisha.kz ашып, сүзгілерді (қала, бөлме, баға) қойып, сілтемені көшіріңіз.\n"
         "2. Жіберіңіз: <code>/add СІЛТЕМЕ</code> немесе <code>/add СІЛТЕМЕ 300000</code> "
         "(макс. баға, ₸).\n\n"
-        "/list – іздеулеріңіз\n/remove N – N іздеуді өшіру\n/check – қазір тексеру",
+        "/list – іздеулеріңіз\n/remove N – N іздеуді өшіру\n/check – қазір тексеру\n"
+        "/language – тілді ауыстыру",
         "bad_url": "Krisha.kz іздеу сілтемесін жіберіңіз, мысалы\n"
         "<code>/add https://krisha.kz/arenda/kvartiry/almaty/?das[live.rooms]=1 300000</code>",
         "bad_price": "Макс. баға сан болуы керек, мысалы 300000",
@@ -94,11 +98,13 @@ TEXTS = {
         "closed": "Бұл жеке бот.",
     },
 }
-COMMANDS = {
-    "en": [("start", "How it works"), ("list", "My searches"), ("check", "Check now")],
-    "ru": [("start", "Как пользоваться"), ("list", "Мои поиски"), ("check", "Проверить сейчас")],
-    "kk": [("start", "Қалай қолдану"), ("list", "Іздеулерім"), ("check", "Қазір тексеру")],
-}
+LANGS = {"en": "🇬🇧 English", "ru": "🇷🇺 Русский", "kk": "🇰🇿 Қазақша"}
+COMMANDS = [
+    ("start", "How it works"),
+    ("list", "My searches"),
+    ("check", "Check now"),
+    ("language", "Change language"),
+]
 
 router = Router()
 store: Storage | None = None
@@ -109,8 +115,8 @@ fetcher: Callable[[aiohttp.ClientSession, str], Awaitable[list[Listing]]] = fetc
 
 
 def lang_of(message: Message) -> str:
-    code = (message.from_user.language_code or "") if message.from_user else ""
-    return code if code in TEXTS else "ru" if code in ("uk", "be") else "en"
+    """Language chosen with /language, English by default."""
+    return store.get_lang(message.chat.id)
 
 
 def t(lang: str, key: str, **kw) -> str:
@@ -128,9 +134,10 @@ def card(lang: str, search_id: int, item: Listing) -> str:
     )
 
 
-async def check_search(bot: Bot, search: tuple[int, int, str, int | None, str]) -> int:
+async def check_search(bot: Bot, search: tuple[int, int, str, int | None]) -> int:
     """Fetch one search page, send new listings that fit the price. Returns how many were new."""
-    search_id, chat_id, url, max_price, lang = search
+    search_id, chat_id, url, max_price = search
+    lang = store.get_lang(chat_id)
     items = await fetcher(session, url)
     fresh = set(store.new_ids(search_id, [i.id for i in items]))
     new = [i for i in items if i.id in fresh and (not max_price or (i.price or 0) <= max_price)]
@@ -150,6 +157,26 @@ def closed(message: Message) -> bool:
 async def start(message: Message):
     lang = lang_of(message)
     await message.answer(t(lang, "closed" if closed(message) else "start"))
+
+
+@router.message(Command("language"))
+async def language(message: Message):
+    kb = InlineKeyboardBuilder()
+    for code, name in LANGS.items():
+        kb.button(text=name, callback_data=f"lang:{code}")
+    await message.answer(
+        "Choose language / Выберите язык / Тілді таңдаңыз", reply_markup=kb.as_markup()
+    )
+
+
+@router.callback_query(F.data.startswith("lang:"))
+async def set_language(call: CallbackQuery):
+    code = call.data.split(":", 1)[1]
+    if code not in TEXTS:
+        return await call.answer()
+    store.set_lang(call.message.chat.id, code)
+    await call.answer()
+    await call.message.edit_text(t(code, "closed" if closed(call.message) else "start"))
 
 
 @router.message(Command("add"))
@@ -173,7 +200,7 @@ async def add(message: Message, command: CommandObject):
     except FetchError as e:
         logging.warning("add: %s", e)
         return await message.answer(t(lang, "fetch_error"))
-    search_id = store.add_search(message.chat.id, parts[0], max_price, lang)
+    search_id = store.add_search(message.chat.id, parts[0], max_price)
     store.new_ids(search_id, [i.id for i in items])  # current page = already seen
     await message.answer(
         t(lang, "added", id=search_id, count=len(items), minutes=interval),
@@ -191,7 +218,7 @@ async def list_searches(message: Message):
         return await message.answer(t(lang, "empty"))
     lines = [
         f"#{sid} {html.escape(url)}" + (f" ({t(lang, 'max', price=fmt_price(mp))})" if mp else "")
-        for sid, _, url, mp, _ in rows
+        for sid, _, url, mp in rows
     ]
     await message.answer(
         "\n\n".join(lines), link_preview_options=LinkPreviewOptions(is_disabled=True)
@@ -251,11 +278,7 @@ async def main():
     allowed = {int(x) for x in os.getenv("ALLOWED_IDS", "").replace(" ", "").split(",") if x}
     interval = max(10, int(os.getenv("CHECK_INTERVAL", "15")))  # be polite to the site
     bot = Bot(os.environ["BOT_TOKEN"], default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    for lang, cmds in COMMANDS.items():
-        await bot.set_my_commands(
-            [BotCommand(command=c, description=d) for c, d in cmds],
-            language_code=None if lang == "en" else lang,
-        )
+    await bot.set_my_commands([BotCommand(command=c, description=d) for c, d in COMMANDS])
     dp = Dispatcher()
     dp.include_router(router)
     async with aiohttp.ClientSession() as s:

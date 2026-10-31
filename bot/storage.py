@@ -15,8 +15,11 @@ class Storage:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 chat_id INTEGER NOT NULL,
                 url TEXT NOT NULL,
-                max_price INTEGER,
-                lang TEXT NOT NULL DEFAULT 'ru'
+                max_price INTEGER
+            );
+            CREATE TABLE IF NOT EXISTS chats (
+                chat_id INTEGER PRIMARY KEY,
+                lang TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS seen (
                 search_id INTEGER NOT NULL,
@@ -26,16 +29,28 @@ class Storage:
             """
         )
 
-    def add_search(self, chat_id: int, url: str, max_price: int | None, lang: str = "ru") -> int:
+    def get_lang(self, chat_id: int) -> str:
+        row = self.db.execute("SELECT lang FROM chats WHERE chat_id = ?", (chat_id,)).fetchone()
+        return row[0] if row else "en"
+
+    def set_lang(self, chat_id: int, lang: str) -> None:
+        with self.db:
+            self.db.execute(
+                "INSERT INTO chats (chat_id, lang) VALUES (?, ?) "
+                "ON CONFLICT(chat_id) DO UPDATE SET lang = excluded.lang",
+                (chat_id, lang),
+            )
+
+    def add_search(self, chat_id: int, url: str, max_price: int | None) -> int:
         with self.db:
             cur = self.db.execute(
-                "INSERT INTO searches (chat_id, url, max_price, lang) VALUES (?, ?, ?, ?)",
-                (chat_id, url, max_price, lang),
+                "INSERT INTO searches (chat_id, url, max_price) VALUES (?, ?, ?)",
+                (chat_id, url, max_price),
             )
         return cur.lastrowid
 
-    def searches(self, chat_id: int | None = None) -> list[tuple[int, int, str, int | None, str]]:
-        sql = "SELECT id, chat_id, url, max_price, lang FROM searches"
+    def searches(self, chat_id: int | None = None) -> list[tuple[int, int, str, int | None]]:
+        sql = "SELECT id, chat_id, url, max_price FROM searches"
         args: tuple = ()
         if chat_id is not None:
             sql += " WHERE chat_id = ?"

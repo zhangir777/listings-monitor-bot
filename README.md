@@ -14,7 +14,7 @@ want to refresh the site all day.
 - Optional max price: `/add LINK 300000`.
 - Remembers what was already sent (SQLite), so you never get the same listing twice.
 - Polite to the site: one page per search, every 15 min by default (minimum 10), pauses between requests.
-- Russian, Kazakh and English (picked from the Telegram app language).
+- English by default; Russian and Kazakh with `/language`.
 - Private mode: `ALLOWED_IDS` limits the bot to you or your team.
 
 ## Commands
@@ -25,6 +25,7 @@ want to refresh the site all day.
 | `/list` | Your searches |
 | `/remove N` | Delete search N |
 | `/check` | Check now instead of waiting |
+| `/language` | English, Russian or Kazakh |
 
 ## Run
 1. Copy `.env.example` to `.env` and set `BOT_TOKEN` (from @BotFather).

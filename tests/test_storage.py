@@ -3,9 +3,9 @@ from bot.storage import Storage
 
 def test_searches_and_seen(tmp_path):
     db = Storage(tmp_path / "t.db")
-    a = db.add_search(1, "https://krisha.kz/arenda/kvartiry/almaty/", 300000, "en")
+    a = db.add_search(1, "https://krisha.kz/arenda/kvartiry/almaty/", 300000)
     b = db.add_search(2, "https://krisha.kz/prodazha/kvartiry/astana/", None)
-    assert db.searches(1) == [(a, 1, "https://krisha.kz/arenda/kvartiry/almaty/", 300000, "en")]
+    assert db.searches(1) == [(a, 1, "https://krisha.kz/arenda/kvartiry/almaty/", 300000)]
     assert len(db.searches()) == 2
 
     assert db.new_ids(a, ["1", "2"]) == ["1", "2"]
@@ -16,3 +16,12 @@ def test_searches_and_seen(tmp_path):
     assert db.new_ids(b, ["1"]) == []  # other user's seen ids untouched
     assert db.remove_search(1, a)
     assert db.searches(1) == []
+
+
+def test_language_per_chat(tmp_path):
+    db = Storage(tmp_path / "t.db")
+    assert db.get_lang(1) == "en"  # English by default
+    db.set_lang(1, "ru")
+    db.set_lang(1, "kk")
+    assert db.get_lang(1) == "kk"
+    assert db.get_lang(2) == "en"
