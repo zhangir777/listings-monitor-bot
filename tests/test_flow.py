@@ -117,7 +117,7 @@ async def test_list_remove_and_validation(env):
 
     await feed(msg(f"/add {URL} 300000"))
     listing = (await feed(msg("/list")))[0].text
-    assert "#1" in listing and "до 300000 ₸" in listing
+    assert "#1" in listing and "до 300 000 ₸" in listing
 
     assert "удалён" in (await feed(msg("/remove 1")))[0].text
     assert "нет" in (await feed(msg("/remove 1")))[0].text

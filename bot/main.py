@@ -34,7 +34,7 @@ TEXTS = {
         "bad_price": "Max price must be a number, e.g. 300000",
         "too_many": "Limit: {n} searches. Delete one with /remove N",
         "fetch_error": "Krisha.kz did not respond. Try again later.",
-        "added": "✅ Search #{id} saved. {count} listings on the page now. "
+        "added": "✅ Search #{id} saved. Listings on the page now: {count}. "
         "I will send only new ones (checking every {minutes} min).",
         "empty": "No searches yet. Add one: /add LINK",
         "removed": "Search #{id} deleted.",
@@ -43,7 +43,7 @@ TEXTS = {
         "no_new": "No new listings yet.",
         "new": "🏠 New listing (search #{id})",
         "more": "…and {n} more new listings: {url}",
-        "max": "up to {price} ₸",
+        "max": "up to {price}",
         "closed": "This bot is private.",
     },
     "ru": {
@@ -58,7 +58,7 @@ TEXTS = {
         "bad_price": "Макс. цена должна быть числом, например 300000",
         "too_many": "Лимит: {n} поисков. Удалите один через /remove N",
         "fetch_error": "Krisha.kz не ответил. Попробуйте позже.",
-        "added": "✅ Поиск #{id} сохранён. Сейчас на странице {count} объявлений. "
+        "added": "✅ Поиск #{id} сохранён. Объявлений на странице сейчас: {count}. "
         "Буду присылать только новые (проверка каждые {minutes} мин).",
         "empty": "Поисков пока нет. Добавьте: /add ССЫЛКА",
         "removed": "Поиск #{id} удалён.",
@@ -67,7 +67,7 @@ TEXTS = {
         "no_new": "Новых объявлений пока нет.",
         "new": "🏠 Новое объявление (поиск #{id})",
         "more": "…и ещё {n} новых: {url}",
-        "max": "до {price} ₸",
+        "max": "до {price}",
         "closed": "Это приватный бот.",
     },
     "kk": {
@@ -81,7 +81,7 @@ TEXTS = {
         "bad_price": "Макс. баға сан болуы керек, мысалы 300000",
         "too_many": "Шектеу: {n} іздеу. Біреуін /remove N арқылы өшіріңіз",
         "fetch_error": "Krisha.kz жауап бермеді. Кейінірек көріңіз.",
-        "added": "✅ #{id} іздеу сақталды. Қазір бетте {count} хабарландыру. "
+        "added": "✅ #{id} іздеу сақталды. Қазір бетте хабарландыру саны: {count}. "
         "Тек жаңаларын жіберемін (әр {minutes} мин сайын тексеремін).",
         "empty": "Іздеулер әлі жоқ. Қосыңыз: /add СІЛТЕМЕ",
         "removed": "#{id} іздеу өшірілді.",
@@ -90,7 +90,7 @@ TEXTS = {
         "no_new": "Әзірге жаңа хабарландыру жоқ.",
         "new": "🏠 Жаңа хабарландыру (#{id} іздеу)",
         "more": "…тағы {n} жаңа: {url}",
-        "max": "{price} ₸ дейін",
+        "max": "{price} дейін",
         "closed": "Бұл жеке бот.",
     },
 }
@@ -190,7 +190,7 @@ async def list_searches(message: Message):
     if not rows:
         return await message.answer(t(lang, "empty"))
     lines = [
-        f"#{sid} {html.escape(url)}" + (f" ({t(lang, 'max', price=mp)})" if mp else "")
+        f"#{sid} {html.escape(url)}" + (f" ({t(lang, 'max', price=fmt_price(mp))})" if mp else "")
         for sid, _, url, mp, _ in rows
     ]
     await message.answer(
