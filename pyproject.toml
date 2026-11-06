@@ -1,7 +1,7 @@
 [project]
 name = "listings-monitor-bot"
 version = "1.0.0"
-description = "Telegram bot that watches Krisha.kz searches and sends new listings (aiogram 3)"
+description = "Telegram bot that watches Craigslist and Krisha.kz searches and sends new listings (aiogram 3)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

@@ -1,11 +1,12 @@
 """Krisha.kz search page -> listings. One page per request, browser User-Agent, public data only."""
 
 import re
-from dataclasses import dataclass
 from urllib.parse import urlparse
 
 import aiohttp
 from bs4 import BeautifulSoup
+
+from bot.listing import FetchError, Listing
 
 BASE = "https://krisha.kz"
 HEADERS = {
@@ -13,19 +14,6 @@ HEADERS = {
     "(KHTML, like Gecko) Chrome/141.0 Safari/537.36",
     "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
 }
-
-
-class FetchError(Exception):
-    pass
-
-
-@dataclass(frozen=True)
-class Listing:
-    id: str
-    title: str
-    price: int | None
-    address: str
-    url: str
 
 
 def is_search_url(url: str) -> bool:
@@ -59,6 +47,7 @@ def parse_listings(html: str) -> list[Listing]:
                 price=parse_price(price.get_text()) if price else None,
                 address=" ".join(address.get_text().split()) if address else "",
                 url=BASE + link["href"],
+                currency="₸",
             )
         )
     return items

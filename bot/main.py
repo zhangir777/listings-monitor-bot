@@ -1,4 +1,4 @@
-"""Krisha.kz listings monitor: saves a search and sends new listings to Telegram.
+"""Listings monitor (Craigslist, Krisha.kz): saves a search and sends new listings to Telegram.
 
 Run: uv run python -m bot.main
 """
@@ -18,7 +18,8 @@ from aiogram.types import BotCommand, CallbackQuery, LinkPreviewOptions, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from dotenv import load_dotenv
 
-from bot.krisha import FetchError, Listing, fetch, is_search_url
+from bot.listing import FetchError, Listing
+from bot.sources import fetch, is_search_url
 from bot.storage import Storage
 
 MAX_SEARCHES = 5  # per chat
@@ -26,16 +27,17 @@ MAX_SENT = 5  # new listings sent per search per check, the rest are summarized
 PAUSE = 3  # seconds between requests to the site
 TEXTS = {
     "en": {
-        "start": "Hi! I watch Krisha.kz and send you new listings as soon as they appear.\n\n"
-        "1. Open krisha.kz, set filters (city, rooms, price) and copy the page link.\n"
-        "2. Send: <code>/add LINK</code> or <code>/add LINK 300000</code> (max price, ₸).\n\n"
+        "start": "Hi! I watch classified sites (Craigslist, Krisha.kz) and send you new "
+        "listings as soon as they appear.\n\n"
+        "1. Open the site, set filters (city, rooms, price) and copy the page link.\n"
+        "2. Send: <code>/add LINK</code> or <code>/add LINK 2500</code> (max price).\n\n"
         "/list – your searches\n/remove N – delete search N\n/check – check now\n"
         "/language – change language",
-        "bad_url": "Send a Krisha.kz search link, e.g.\n"
-        "<code>/add https://krisha.kz/arenda/kvartiry/almaty/?das[live.rooms]=1 300000</code>",
-        "bad_price": "Max price must be a number, e.g. 300000",
+        "bad_url": "Send a Craigslist or Krisha.kz search link, e.g.\n"
+        "<code>/add https://newyork.craigslist.org/search/apa?max_price=3000 2500</code>",
+        "bad_price": "Max price must be a number, e.g. 2500",
         "too_many": "Limit: {n} searches. Delete one with /remove N",
-        "fetch_error": "Krisha.kz did not respond. Try again later.",
+        "fetch_error": "The site did not respond. Try again later.",
         "added": "✅ Search #{id} saved. Listings on the page now: {count}. "
         "I will send only new ones (checking every {minutes} min).",
         "empty": "No searches yet. Add one: /add LINK",
@@ -49,18 +51,18 @@ TEXTS = {
         "closed": "This bot is private.",
     },
     "ru": {
-        "start": "Привет! Я слежу за Krisha.kz и присылаю новые объявления, как только они "
-        "появляются.\n\n"
-        "1. Откройте krisha.kz, выставьте фильтры (город, комнаты, цена) и скопируйте ссылку.\n"
-        "2. Отправьте: <code>/add ССЫЛКА</code> или <code>/add ССЫЛКА 300000</code> "
-        "(макс. цена, ₸).\n\n"
+        "start": "Привет! Я слежу за сайтами объявлений (Craigslist, Krisha.kz) и присылаю "
+        "новые, как только они появляются.\n\n"
+        "1. Откройте сайт, выставьте фильтры (город, комнаты, цена) и скопируйте ссылку.\n"
+        "2. Отправьте: <code>/add ССЫЛКА</code> или <code>/add ССЫЛКА 2500</code> "
+        "(макс. цена).\n\n"
         "/list – ваши поиски\n/remove N – удалить поиск N\n/check – проверить сейчас\n"
         "/language – сменить язык",
-        "bad_url": "Пришлите ссылку на поиск Krisha.kz, например\n"
-        "<code>/add https://krisha.kz/arenda/kvartiry/almaty/?das[live.rooms]=1 300000</code>",
-        "bad_price": "Макс. цена должна быть числом, например 300000",
+        "bad_url": "Пришлите ссылку на поиск Craigslist или Krisha.kz, например\n"
+        "<code>/add https://newyork.craigslist.org/search/apa?max_price=3000 2500</code>",
+        "bad_price": "Макс. цена должна быть числом, например 2500",
         "too_many": "Лимит: {n} поисков. Удалите один через /remove N",
-        "fetch_error": "Krisha.kz не ответил. Попробуйте позже.",
+        "fetch_error": "Сайт не ответил. Попробуйте позже.",
         "added": "✅ Поиск #{id} сохранён. Объявлений на странице сейчас: {count}. "
         "Буду присылать только новые (проверка каждые {minutes} мин).",
         "empty": "Поисков пока нет. Добавьте: /add ССЫЛКА",
@@ -74,17 +76,18 @@ TEXTS = {
         "closed": "Это приватный бот.",
     },
     "kk": {
-        "start": "Сәлем! Мен Krisha.kz сайтын бақылап, жаңа хабарландыруларды бірден жіберемін.\n\n"
-        "1. krisha.kz ашып, сүзгілерді (қала, бөлме, баға) қойып, сілтемені көшіріңіз.\n"
-        "2. Жіберіңіз: <code>/add СІЛТЕМЕ</code> немесе <code>/add СІЛТЕМЕ 300000</code> "
-        "(макс. баға, ₸).\n\n"
+        "start": "Сәлем! Мен хабарландыру сайттарын (Craigslist, Krisha.kz) бақылап, "
+        "жаңаларын бірден жіберемін.\n\n"
+        "1. Сайтты ашып, сүзгілерді (қала, бөлме, баға) қойып, сілтемені көшіріңіз.\n"
+        "2. Жіберіңіз: <code>/add СІЛТЕМЕ</code> немесе <code>/add СІЛТЕМЕ 2500</code> "
+        "(макс. баға).\n\n"
         "/list – іздеулеріңіз\n/remove N – N іздеуді өшіру\n/check – қазір тексеру\n"
         "/language – тілді ауыстыру",
-        "bad_url": "Krisha.kz іздеу сілтемесін жіберіңіз, мысалы\n"
-        "<code>/add https://krisha.kz/arenda/kvartiry/almaty/?das[live.rooms]=1 300000</code>",
-        "bad_price": "Макс. баға сан болуы керек, мысалы 300000",
+        "bad_url": "Craigslist немесе Krisha.kz іздеу сілтемесін жіберіңіз, мысалы\n"
+        "<code>/add https://newyork.craigslist.org/search/apa?max_price=3000 2500</code>",
+        "bad_price": "Макс. баға сан болуы керек, мысалы 2500",
         "too_many": "Шектеу: {n} іздеу. Біреуін /remove N арқылы өшіріңіз",
-        "fetch_error": "Krisha.kz жауап бермеді. Кейінірек көріңіз.",
+        "fetch_error": "Сайт жауап бермеді. Кейінірек көріңіз.",
         "added": "✅ #{id} іздеу сақталды. Қазір бетте хабарландыру саны: {count}. "
         "Тек жаңаларын жіберемін (әр {minutes} мин сайын тексеремін).",
         "empty": "Іздеулер әлі жоқ. Қосыңыз: /add СІЛТЕМЕ",
@@ -123,14 +126,16 @@ def t(lang: str, key: str, **kw) -> str:
     return TEXTS[lang][key].format(**kw)
 
 
-def fmt_price(price: int | None) -> str:
-    return f"{price:,}".replace(",", " ") + " ₸" if price else "—"
+def fmt_price(price: int | None, currency: str = "₸") -> str:
+    if not price:
+        return "—"
+    return f"${price:,}" if currency == "$" else f"{price:,}".replace(",", " ") + f" {currency}"
 
 
 def card(lang: str, search_id: int, item: Listing) -> str:
     return (
         f"<b>{t(lang, 'new', id=search_id)}</b>\n{html.escape(item.title)}\n"
-        f"💰 {fmt_price(item.price)}\n📍 {html.escape(item.address)}\n{item.url}"
+        f"💰 {fmt_price(item.price, item.currency)}\n📍 {html.escape(item.address)}\n{item.url}"
     )
 
 

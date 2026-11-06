@@ -1,4 +1,4 @@
-# Listings monitor bot for Telegram (Krisha.kz)
+# Listings monitor bot for Telegram (Craigslist, Krisha.kz)
 
 [![CI](https://github.com/zhangir777/listings-monitor-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/zhangir777/listings-monitor-bot/actions/workflows/ci.yml)
 
@@ -6,12 +6,12 @@
 
 **Live demo:** [@zhangir_monitor_bot](https://t.me/zhangir_monitor_bot) (runs when my demo server is on)
 
-A Telegram bot that watches your Krisha.kz search and sends **only new listings** the moment
+A Telegram bot that watches your Craigslist (or Krisha.kz) search and sends **only new listings** the moment
 they appear: title, price, address and link. Good for renters, buyers and realtors who don't
 want to refresh the site all day.
 
-- Paste any Krisha.kz search link with your filters (city, rooms, price, district).
-- Optional max price: `/add LINK 300000`.
+- Paste any Craigslist or Krisha.kz search link with your filters (city, category, price).
+- Optional max price: `/add LINK 2500`.
 - Remembers what was already sent (SQLite), so you never get the same listing twice.
 - Polite to the site: one page per search, every 15 min by default (minimum 10), pauses between requests.
 - English by default; Russian and Kazakh with `/language`.
@@ -19,7 +19,7 @@ want to refresh the site all day.
 
 ![Add a search and get a new listing](docs/screenshots/add_and_new_listing.png)
 
-*Bot messages are in English. The listing text itself (title, address) comes from Krisha.kz in Russian.*
+*Demo on a Craigslist apartment search. Krisha.kz links work the same way (listing text there is in Russian).*
 
 ## Commands
 | Command | What it does |
@@ -44,11 +44,12 @@ want to refresh the site all day.
 ```
 uv run pytest -q
 ```
-Parser tests use a saved Krisha.kz page (`tests/fixtures`), so they don't hit the site.
+Parser tests use saved Craigslist and Krisha.kz pages (`tests/fixtures`), so they don't hit the sites.
 
 ## Other sites
-`bot/krisha.py` is the only site-specific file. For another site (OLX, Kolesa, etc.) write a
-module with the same `fetch()` that returns `Listing` objects. Only public pages, no login,
+Each site is one small file: `bot/craigslist.py`, `bot/krisha.py`. For another site (OLX, Kolesa, etc.)
+write a module with `is_search_url()` and `fetch()` that returns `Listing` objects, and add it to
+`bot/sources.py`. Only public pages, no login,
 no bypassing blocks.
 
 ## License
