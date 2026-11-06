@@ -17,6 +17,10 @@ want to refresh the site all day.
 - English by default; Russian and Kazakh with `/language`.
 - Private mode: `ALLOWED_IDS` limits the bot to you or your team.
 
+![Add a search and get a new listing](docs/screenshots/add_and_new_listing.png)
+
+*Bot messages are in English. The listing text itself (title, address) comes from Krisha.kz in Russian.*
+
 ## Commands
 | Command | What it does |
 |---|---|
