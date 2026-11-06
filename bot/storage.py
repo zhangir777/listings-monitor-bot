@@ -66,6 +66,18 @@ class Storage:
                 self.db.execute("DELETE FROM seen WHERE search_id = ?", (search_id,))
         return cur.rowcount > 0
 
+    def remove_all(self, chat_id: int) -> int:
+        """Delete every search of a chat (and its seen ids). Returns how many were deleted."""
+        with self.db:
+            ids = [
+                r[0]
+                for r in self.db.execute("SELECT id FROM searches WHERE chat_id = ?", (chat_id,))
+            ]
+            for sid in ids:
+                self.db.execute("DELETE FROM seen WHERE search_id = ?", (sid,))
+            self.db.execute("DELETE FROM searches WHERE chat_id = ?", (chat_id,))
+        return len(ids)
+
     def new_ids(self, search_id: int, ids: list[str]) -> list[str]:
         """Mark ids as seen and return the ones that were not seen before."""
         fresh = []

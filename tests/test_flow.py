@@ -160,3 +160,12 @@ async def test_english_by_default_then_switch_language(env):
     edits = [c for c in feed.session.calls if isinstance(c, EditMessageText)]
     assert edits[0].text == main.TEXTS["ru"]["start"]
     assert (await feed(msg("/list")))[0].text == main.TEXTS["ru"]["empty"]
+
+
+async def test_stop_deletes_all_searches(env):
+    feed, _, _ = env
+    await feed(msg(f"/add {URL}"))
+    await feed(msg(f"/add {URL} 100"))
+    assert "Deleted 2" in (await feed(msg("/stop")))[0].text
+    assert (await feed(msg("/list")))[0].text == main.TEXTS["en"]["empty"]
+    assert "Deleted 0" in (await feed(msg("/stop")))[0].text

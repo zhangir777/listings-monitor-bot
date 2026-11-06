@@ -31,7 +31,8 @@ TEXTS = {
         "listings as soon as they appear.\n\n"
         "1. Open the site, set filters (city, rooms, price) and copy the page link.\n"
         "2. Send: <code>/add LINK</code> or <code>/add LINK 2500</code> (max price).\n\n"
-        "/list – your searches\n/remove N – delete search N\n/check – check now\n"
+        "/list – your searches\n/remove N – delete search N\n/stop – delete all, no more alerts\n"
+        "/check – check now\n"
         "/language – change language",
         "bad_url": "Send a Craigslist or Krisha.kz search link, e.g.\n"
         "<code>/add https://newyork.craigslist.org/search/apa?max_price=3000 2500</code>",
@@ -44,6 +45,7 @@ TEXTS = {
         "removed": "Search #{id} deleted.",
         "not_found": "No search #{id}. See /list",
         "remove_usage": "Usage: /remove N (number from /list)",
+        "stopped": "Stopped. Deleted {n} search(es), no more notifications. Add again: /add LINK",
         "no_new": "No new listings yet.",
         "new": "🏠 New listing (search #{id})",
         "more": "…and {n} more new listings: {url}",
@@ -56,7 +58,8 @@ TEXTS = {
         "1. Откройте сайт, выставьте фильтры (город, комнаты, цена) и скопируйте ссылку.\n"
         "2. Отправьте: <code>/add ССЫЛКА</code> или <code>/add ССЫЛКА 2500</code> "
         "(макс. цена).\n\n"
-        "/list – ваши поиски\n/remove N – удалить поиск N\n/check – проверить сейчас\n"
+        "/list – ваши поиски\n/remove N – удалить поиск N\n/stop – удалить все, без уведомлений\n"
+        "/check – проверить сейчас\n"
         "/language – сменить язык",
         "bad_url": "Пришлите ссылку на поиск Craigslist или Krisha.kz, например\n"
         "<code>/add https://newyork.craigslist.org/search/apa?max_price=3000 2500</code>",
@@ -69,6 +72,7 @@ TEXTS = {
         "removed": "Поиск #{id} удалён.",
         "not_found": "Поиска #{id} нет. Смотрите /list",
         "remove_usage": "Формат: /remove N (номер из /list)",
+        "stopped": "Остановлено. Удалено поисков: {n}, уведомлений не будет. Снова: /add ССЫЛКА",
         "no_new": "Новых объявлений пока нет.",
         "new": "🏠 Новое объявление (поиск #{id})",
         "more": "…и ещё {n} новых: {url}",
@@ -81,7 +85,8 @@ TEXTS = {
         "1. Сайтты ашып, сүзгілерді (қала, бөлме, баға) қойып, сілтемені көшіріңіз.\n"
         "2. Жіберіңіз: <code>/add СІЛТЕМЕ</code> немесе <code>/add СІЛТЕМЕ 2500</code> "
         "(макс. баға).\n\n"
-        "/list – іздеулеріңіз\n/remove N – N іздеуді өшіру\n/check – қазір тексеру\n"
+        "/list – іздеулеріңіз\n/remove N – N іздеуді өшіру\n/stop – бәрін өшіру, хабарландырусыз\n"
+        "/check – қазір тексеру\n"
         "/language – тілді ауыстыру",
         "bad_url": "Craigslist немесе Krisha.kz іздеу сілтемесін жіберіңіз, мысалы\n"
         "<code>/add https://newyork.craigslist.org/search/apa?max_price=3000 2500</code>",
@@ -94,6 +99,7 @@ TEXTS = {
         "removed": "#{id} іздеу өшірілді.",
         "not_found": "#{id} іздеу жоқ. /list қараңыз",
         "remove_usage": "Пішімі: /remove N (/list ішіндегі нөмір)",
+        "stopped": "Тоқтатылды. Өшірілген іздеу: {n}, хабарландыру келмейді. Қайта: /add СІЛТЕМЕ",
         "no_new": "Әзірге жаңа хабарландыру жоқ.",
         "new": "🏠 Жаңа хабарландыру (#{id} іздеу)",
         "more": "…тағы {n} жаңа: {url}",
@@ -106,6 +112,7 @@ COMMANDS = [
     ("start", "How it works"),
     ("list", "My searches"),
     ("check", "Check now"),
+    ("stop", "Stop notifications (delete all searches)"),
     ("language", "Change language"),
 ]
 
@@ -240,6 +247,14 @@ async def remove(message: Message, command: CommandObject):
         return await message.answer(t(lang, "remove_usage"))
     ok = store.remove_search(message.chat.id, int(arg))
     await message.answer(t(lang, "removed" if ok else "not_found", id=arg))
+
+
+@router.message(Command("stop"))
+async def stop(message: Message):
+    lang = lang_of(message)
+    if closed(message):
+        return await message.answer(t(lang, "closed"))
+    await message.answer(t(lang, "stopped", n=store.remove_all(message.chat.id)))
 
 
 @router.message(Command("check"))
