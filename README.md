@@ -4,6 +4,8 @@
 
 **Hire me:** [Upwork](https://www.upwork.com/freelancers/~012c68804f9b4d4550) · [Fiverr](https://www.fiverr.com/akhmetov_zhangi) · [Telegram @ZhangirAkhmetov](https://t.me/ZhangirAkhmetov)
 
+**[Watch the demo video (mp4)](docs/demo.mp4)**
+
 **Live demo:** [@zhangir_monitor_bot](https://t.me/zhangir_monitor_bot) (runs when my demo server is on)
 
 A Telegram bot that watches your Craigslist (or Krisha.kz) search and sends **only new listings** the moment
